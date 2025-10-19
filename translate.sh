@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Uzbek translation script for handlers.go
+
+sed -i '' \
+-e 's/Admin Dashboard/Admin Boshqaruv Paneli/g' \
+-e 's/Teacher Dashboard/O'\''qituvchi Boshqaruv Paneli/g' \
+-e 's/Student Dashboard/Talaba Boshqaruv Paneli/g' \
+-e 's/Teachers:/O'\''qituvchilar:/g' \
+-e 's/Students:/Talabalar:/g' \
+-e 's/Manage Subjects/Fanlarni Boshqarish/g' \
+-e 's/Select a subject to manage or add a new one\./Fanni tanlang yoki yangisini qo'\''shing\./g' \
+-e 's/No subjects found\. Please add the first one\./Hech qanday fan topilmadi\. Birinchisini qo'\''shing\./g' \
+-e 's/Managing Subject:/Fan boshqarilmoqda:/g' \
+-e 's/Subject not found\./Fan topilmadi\./g' \
+-e 's/Please send the name for the new subject\./Iltimos yangi fan nomini yuboring\./g' \
+-e 's/A subject with this name already exists\./Bu nomdagi fan allaqachon mavjud\./g' \
+-e 's/created successfully!/muvaffaqiyatli yaratildi!/g' \
+-e 's/Subject name updated successfully!/Fan nomi muvaffaqiyatli yangilandi!/g' \
+-e 's/Failed to update subject name\. It may already exist\./Fan nomini yangilashda xatolik\. Bu nom allaqachon mavjud bo'\''lishi mumkin\./g' \
+-e 's/Subject deleted successfully\./Fan muvaffaqiyatli o'\''chirildi\./g' \
+-e 's/Error deleting subject\./Fanni o'\''chirishda xatolik\./g' \
+-e 's/Are you sure you want to delete this subject and all its categories\/resources\? This action cannot be undone\./Bu fanni va uning barcha kategoriya\/resurslarini o'\''chirmoqchimisiz? Bu amalni bekor qilib bo'\''lmaydi\./g' \
+-e 's/Manage Categories/Kategoriyalarni Boshqarish/g' \
+-e 's/Subject:/Fan:/g' \
+-e 's/No categories found\. Please add one\./Hech qanday kategoriya topilmadi\. Iltimos birini qo'\''shing\./g' \
+-e 's/Select a category to manage:/Kategoriyani tanlang:/g' \
+-e 's/Managing Category:/Kategoriya boshqarilmoqda:/g' \
+-e 's/Category not found\./Kategoriya topilmadi\./g' \
+-e 's/Please send the name for the new category\./Iltimos yangi kategoriya nomini yuboring\./g' \
+-e 's/Failed to create category\./Kategoriyani yaratishda xatolik\./g' \
+-e 's/Category name updated successfully!/Kategoriya nomi muvaffaqiyatli yangilandi!/g' \
+-e 's/Failed to update category name\./Kategoriya nomini yangilashda xatolik\./g' \
+-e 's/Are you sure you want to delete this category and all its resources?/Bu kategoriyani va uning barcha resurslarini o'\''chirmoqchimisiz?/g' \
+-e 's/Category deleted successfully\./Kategoriya muvaffaqiyatli o'\''chirildi\./g' \
+-e 's/No resources yet\. Add some!/Hech qanday resurs yo'\''q\. Qo'\''shing!/g' \
+-e 's/Please send the URL of the resource (YouTube, social media, etc\.\)\./Iltimos resurs havolasini yuboring (YouTube, ijtimoiy tarmoqlar va boshqalar)\./g' \
+-e 's/Please send the file (PDF, DOC, video, etc\.\)\./Iltimos fayl yuboring (PDF, DOC, video va boshqalar)\./g' \
+-e 's/Link added successfully!/Havola muvaffaqiyatli qo'\''shildi!/g' \
+-e 's/Failed to add resource\./Resursni qo'\''shishda xatolik\./g' \
+-e 's/Resource deleted successfully\./Resurs muvaffaqiyatli o'\''chirildi\./g' \
+-e 's/Manage Teachers/O'\''qituvchilarni Boshqarish/g' \
+-e 's/Total Teachers:/Jami O'\''qituvchilar:/g' \
+-e 's/Teachers List/O'\''qituvchilar Ro'\''yxati/g' \
+-e 's/No teachers registered yet\./Hech qanday o'\''qituvchi ro'\''yxatdan o'\''tmagan\./g' \
+-e 's/Username:/Foydalanuvchi nomi:/g' \
+-e 's/Phone:/Telefon:/g' \
+-e 's/Telegram ID:/Telegram ID:/g' \
+-e 's/Please send the phone number of the user you want to promote to Teacher (format: +1234567890)\./O'\''qituvchi qilmoqchi bo'\''lgan foydalanuvchining telefon raqamini yuboring (format: +1234567890)\./g' \
+-e 's/No user found with this phone number\. The user must register first as a student\./Bu telefon raqamli foydalanuvchi topilmadi\. Foydalanuvchi avval talaba sifatida ro'\''yxatdan o'\''tishi kerak\./g' \
+-e 's/This user is already a teacher\./Bu foydalanuvchi allaqachon o'\''qituvchi\./g' \
+-e 's/Cannot change admin role\./Admin rolini o'\''zgartirib bo'\''lmaydi\./g' \
+-e 's/has been promoted to Teacher!/O'\''qituvchiga ko'\''tarildi!/g' \
+-e 's/Teacher has been demoted to Student\./O'\''qituvchi Talabaga tushirildi\./g' \
+-e 's/Manage Students/Talabalarni Boshqarish/g' \
+-e 's/Total Students:/Jami Talabalar:/g' \
+-e 's/Students List/Talabalar Ro'\''yxati/g' \
+-e 's/No students registered yet\./Hech qanday talaba ro'\''yxatdan o'\''tmagan\./g' \
+-e 's/Browse All Subjects/Barcha Fanlar/g' \
+-e 's/Select a subject to view its categories and resources\./Kategoriyalar va resurslarni ko'\''rish uchun fanni tanlang\./g' \
+-e 's/No subjects available yet\./Hech qanday fan mavjud emas\./g' \
+-e 's/You are subscribed to notifications for this subject\./Siz bu fan uchun bildirishnomalarga obuna bo'\''lgansiz\./g' \
+-e 's/Subscribe to get notified when new resources are added\./Yangi resurslar qo'\''shilganda xabardor bo'\''lish uchun obuna bo'\''ling\./g' \
+-e 's/Click '\''View Categories'\'' to explore the available materials\./'\''Kategoriyalarni ko'\''rish'\''ni bosing va mavjud materiallarni o'\''rganing\./g' \
+-e 's/No categories available yet\./Hech qanday kategoriya mavjud emas\./g' \
+-e 's/Select a category to view its resources:/Kategoriyani tanlang va resurslarni ko'\''ring:/g' \
+-e 's/No resources available yet\./Hech qanday resurs mavjud emas\./g' \
+-e 's/My Subscriptions/Obunalarim/g' \
+-e 's/You haven'\''t subscribed to any subjects yet\./Siz hali hech qanday fanga obuna bo'\''lmadingiz\./g' \
+-e 's/Subscriptions allow you to receive notifications when new resources are added\./Obunalar yangi resurslar qo'\''shilganda bildirishnoma olish imkonini beradi\./g' \
+-e 's/You will receive notifications for these subjects when new resources are added:/Yangi resurslar qo'\''shilganda siz ushbu fanlar uchun bildirishnomalar olasiz:/g' \
+-e 's/You will now receive notifications for new resources!/Siz endi yangi resurslar uchun bildirishnoma olasiz!/g' \
+-e 's/You will no longer receive notifications for this subject\./Siz endi bu fan uchun bildirishnoma olmaysiz\./g' \
+-e 's/New Content Alert!/Yangi Kontent Ogohlantirish!/g' \
+-e 's/Category:/Kategoriya:/g' \
+-e 's/User not found\./Foydalanuvchi topilmadi\./g' \
+-e 's/You don'\''t have permission to manage subjects\./Sizda fanlarni boshqarish uchun ruxsat yo'\''q\./g' \
+-e 's/You don'\''t have permission to add subjects\./Sizda fan qo'\''shish uchun ruxsat yo'\''q\./g' \
+-e 's/Could not find your user record\./Foydalanuvchi ma'\''lumotlaringiz topilmadi\./g' \
+-e 's/Invalid phone number format\. Please try again\./Telefon raqam formati noto'\''g'\''ri\. Iltimos qaytadan urinib ko'\''ring\./g' \
+/Users/abdurayim/Desktop/PROJECTS/tg-bot/internal/bot/handlers.go
+
+echo "Translation complete!"
