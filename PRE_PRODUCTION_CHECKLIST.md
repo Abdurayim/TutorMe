@@ -103,7 +103,6 @@ All callback patterns verified and implemented:
 
 ### Environment Variables Required
 - [ ] `BOT_TOKEN` - Your Telegram bot token
-- [ ] `WEBHOOK_URL` - Your public webhook URL (HTTPS)
 - [ ] `ADMIN_PHONE_NUMBER` - Admin phone in E.164 format (+998...)
 
 ### Database
@@ -113,8 +112,8 @@ All callback patterns verified and implemented:
 ### Security
 - [ ] Never commit `.env` file
 - [ ] Keep `BOT_TOKEN` secret
-- [ ] Use HTTPS for webhook
 - [ ] Consider rate limiting for production traffic
+- [ ] Run bot in a secure environment with proper access controls
 
 ### Monitoring
 - [ ] Check logs for errors after deployment

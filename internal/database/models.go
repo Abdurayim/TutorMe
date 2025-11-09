@@ -33,11 +33,15 @@ type Category struct {
 // Resource represents an educational material
 type Resource struct {
 	gorm.Model
-	Type       string // video, link, pdf, doc
-	URL        string
-	FileID     string // For files uploaded directly to Telegram
-	CategoryID uint
-	Category   Category
+	Type            string // video, link, pdf, doc
+	URL             string // Original URL (for links) or source URL (for downloaded videos)
+	FileID          string // For files uploaded directly to Telegram
+	CategoryID      uint
+	Category        Category
+	ProcessingStatus string // "pending", "processing", "completed", "failed", "" (for non-video resources)
+	Progress        int    // 0-100 percentage for video processing
+	Title           string // Video title from platform
+	ErrorMessage    string // Error details if processing failed
 }
 
 // Subscription links a user to a subject

@@ -6,11 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Telegram bot built in Go that provides an educational platform with role-based access control. The bot manages subjects, categories, and educational resources with three user roles: Admin, Teacher, and Student.
 
+**Key Feature**: Automatic video processing - when teachers share YouTube, Instagram, TikTok, or other video platform links, the bot automatically downloads, optimizes, and embeds videos directly in Telegram so students can watch without leaving the app.
+
 ## Technology Stack
 
 - **Language**: Go 1.24.5
 - **Bot Framework**: go-telegram-bot-api/v5
-- **Web Framework**: Gin (for webhook handling)
+- **Update Method**: Long Polling
 - **Database**: SQLite with GORM ORM
 - **Phone Validation**: nyaruka/phonenumbers
 
@@ -20,7 +22,6 @@ This is a Telegram bot built in Go that provides an educational platform with ro
 1. Create a `.env` file with required environment variables:
    ```
    BOT_TOKEN=your_telegram_bot_token
-   WEBHOOK_URL=your_webhook_url
    ADMIN_PHONE_NUMBER=+1234567890
    ```
 
@@ -37,24 +38,27 @@ go run cmd/main.go
 The bot will:
 - Load environment variables from `.env`
 - Initialize SQLite database (`bot.db`)
-- Set up webhook at `WEBHOOK_URL/{BOT_TOKEN}`
-- Start Gin server on port 8080
+- Delete any existing webhook configuration
+- Start polling for updates with 60-second timeout
 
 ## Architecture
 
 ### Package Structure
 ```
-cmd/main.go              - Entry point, initializes bot and webhook
+cmd/main.go              - Entry point, initializes bot and polling
 internal/
   bot/
     handlers.go          - Main update router and business logic
     keyboards.go         - Telegram keyboard UI builders
+    video_job.go         - Background video processing with goroutines
   database/
     models.go           - GORM models and DB initialization
   roles/
     roles.go            - Role constants (admin, teacher, student)
   utils/
     validation.go       - Phone number validation utilities
+    video.go            - Video URL detection for social platforms
+    video_processor.go  - Video download/transcode with yt-dlp/ffmpeg
 ```
 
 ### State Management
@@ -73,12 +77,19 @@ All models use GORM conventions:
 - `User`: Stores Telegram users with role, phone number, and Telegram ID
 - `Subject`: Educational subjects (e.g., Math, Physics)
 - `Category`: Subcategories within subjects
-- `Resource`: Educational materials (video, link, pdf, doc) with FileID for Telegram files
+- `Resource`: Educational materials with video processing support:
+  - `Type`: "video", "link", "document"
+  - `URL`: Original source URL (preserved for videos)
+  - `FileID`: Telegram file identifier
+  - `ProcessingStatus`: "", "pending", "processing", "completed", "failed"
+  - `Progress`: 0-100 percentage during processing
+  - `Title`: Video title from platform
+  - `ErrorMessage`: Processing error details
 - `Subscription`: Many-to-many relationship between Users and Subjects
 
 ### Request Flow
-1. Telegram sends webhook POST to `/{BOT_TOKEN}`
-2. `Handler.HandleUpdate()` parses JSON and routes to:
+1. Bot continuously polls Telegram servers for new updates (60-second timeout)
+2. `Handler.HandleUpdate()` receives updates and routes to:
    - `handleMessage()` for text messages and commands
    - `handleCallbackQuery()` for inline button presses
 3. Stateful messages are routed through `handleStatefulMessage()`
@@ -109,15 +120,40 @@ Inline keyboard buttons use prefixed callback data:
 - Admin phone must match exactly in E.164 format
 
 ### Testing the Bot
-1. Set up ngrok or similar for webhook URL: `ngrok http 8080`
-2. Update `WEBHOOK_URL` in `.env` to ngrok URL
-3. Start the bot: `go run cmd/main.go`
-4. Test with Telegram client using `/start` command
+1. Make sure `BOT_TOKEN` is set in `.env` file
+2. Start the bot: `go run cmd/main.go`
+3. Test with Telegram client using `/start` command
+4. No need for ngrok or public URL - polling works from localhost
+
+### Video Processing System
+
+The bot includes a sophisticated video processing pipeline:
+
+**Supported Platforms**: YouTube, Instagram, TikTok, Facebook, Twitter/X, Vimeo, Dailymotion, Reddit, Twitch
+
+**Processing Flow**:
+1. Teacher submits video URL
+2. Bot detects platform using regex patterns
+3. Creates pending resource in database
+4. Enqueues background job (non-blocking)
+5. Worker goroutine processes:
+   - Downloads with yt-dlp (720p for YouTube)
+   - Transcodes with ffmpeg if >100MB
+   - Uploads to Telegram via Local Bot API
+   - Updates database with FileID
+6. Sends live progress updates (0-100%)
+7. Notifies teacher and subscribed students
+
+**Configuration**:
+- Standard mode: 50 MB file limit
+- Local Bot API mode: 2 GB file limit (recommended)
+- 3 concurrent worker goroutines
+- Automatic cleanup of temporary files
+
+See `VIDEO_PROCESSING_GUIDE.md` and `LOCAL_BOT_API_SETUP.md` for details.
 
 ### Known Issues
-- Line 313 in `handlers.go` has syntax error: `if len(allSubjects) == ==` (double equals)
 - Teacher role functionality is partially implemented
-- Category and Resource management not yet implemented
 - Deletion operations don't cascade properly (missing transaction handling)
 
 ### Extending the Bot

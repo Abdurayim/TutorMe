@@ -3,7 +3,6 @@ package bot
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -11,7 +10,6 @@ import (
 	"tg-bot/internal/roles"
 	"tg-bot/internal/utils"
 
-	"github.com/gin-gonic/gin"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"gorm.io/gorm"
 )
@@ -36,35 +34,32 @@ type Handler struct {
 	userStates       map[int64]string // In-memory state: map[userID]state
 	stateContext     map[int64]uint   // Stores context for a state, e.g., the subjectID to edit
 	resourcePageInfo map[int64]int    // Stores current page number for resource pagination: map[userID]pageNumber
+	VideoJobProcessor *VideoJobProcessor // Handles async video processing
 }
 
 // NewHandler initializes the bot handler with the state map.
 func NewHandler(bot *tgbotapi.BotAPI, db *gorm.DB) *Handler {
-	return &Handler{
+	handler := &Handler{
 		Bot:              bot,
 		DB:               db,
 		userStates:       make(map[int64]string),
 		stateContext:     make(map[int64]uint),
 		resourcePageInfo: make(map[int64]int),
 	}
+
+	// Initialize video job processor
+	handler.VideoJobProcessor = NewVideoJobProcessor(bot, db)
+
+	return handler
 }
 
-// HandleUpdate is the main webhook entry point that routes updates.
-func (h *Handler) HandleUpdate(c *gin.Context) {
-	var update tgbotapi.Update
-	if err := c.ShouldBindJSON(&update); err != nil {
-		log.Printf("Could not bind json: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
+// HandleUpdate is the main entry point that routes updates.
+func (h *Handler) HandleUpdate(update tgbotapi.Update) {
 	if update.Message != nil {
 		h.handleMessage(update.Message)
 	} else if update.CallbackQuery != nil {
 		h.handleCallbackQuery(update.CallbackQuery)
 	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 // handleMessage routes incoming messages based on user state or message type.
@@ -167,20 +162,70 @@ func (h *Handler) handleStatefulMessage(message *tgbotapi.Message) {
 
 	case StateAwaitingResourceURL:
 		categoryID := h.stateContext[userID]
-		resource := database.Resource{
-			Type:       "link",
-			URL:        message.Text,
-			CategoryID: categoryID,
-		}
-		if res := h.DB.Create(&resource); res.Error != nil {
-			log.Printf("Error creating resource: %v", res.Error)
-			h.sendErrorMessage(chatID, "Failed to add resource.")
+		videoURL := strings.TrimSpace(message.Text)
+
+		// Check if this is a video URL
+		if utils.IsVideoURL(videoURL) {
+			// This is a video URL - process it asynchronously
+			source := utils.GetVideoSource(videoURL)
+
+			// Create resource with pending status
+			resource := database.Resource{
+				Type:             "link", // Initially link, will become "video" after processing
+				URL:              videoURL,
+				CategoryID:       categoryID,
+				ProcessingStatus: "pending",
+				Progress:         0,
+			}
+
+			if res := h.DB.Create(&resource); res.Error != nil {
+				log.Printf("Error creating resource: %v", res.Error)
+				h.sendErrorMessage(chatID, "Resurs qo'shishda xatolik yuz berdi.")
+			} else {
+				log.Printf("Video resource created: ID=%d, URL=%s, Source=%s", resource.ID, videoURL, source)
+
+				// Send initial processing message
+				processingText := fmt.Sprintf("⏳ *Video qayta ishlanmoqda...*\n\n"+
+					"Manba: %s\n"+
+					"URL: %s\n\n"+
+					"Bu bir necha daqiqa vaqt olishi mumkin. Progress yangilanishlarini ko'rib turasiz.",
+					source, videoURL)
+
+				progressMsg := tgbotapi.NewMessage(chatID, processingText)
+				progressMsg.ParseMode = "Markdown"
+				sentMsg, _ := h.Bot.Send(progressMsg)
+
+				// Enqueue video processing job
+				job := VideoJob{
+					ResourceID: resource.ID,
+					VideoURL:   videoURL,
+					CategoryID: categoryID,
+					ChatID:     chatID,
+					MessageID:  sentMsg.MessageID,
+				}
+				h.VideoJobProcessor.EnqueueJob(job)
+
+				log.Printf("Video job enqueued: ResourceID=%d", resource.ID)
+			}
 		} else {
-			log.Printf("Resource added successfully: ID=%d, Type=%s, URL=%s, CategoryID=%d", resource.ID, resource.Type, resource.URL, resource.CategoryID)
-			h.sendErrorMessage(chatID, "✅ Link added successfully!")
-			// Notify subscribed users
-			h.notifySubscribedUsers(categoryID, fmt.Sprintf("New link added: %s", message.Text))
+			// Regular link (not a video)
+			resource := database.Resource{
+				Type:       "link",
+				URL:        videoURL,
+				CategoryID: categoryID,
+			}
+
+			if res := h.DB.Create(&resource); res.Error != nil {
+				log.Printf("Error creating resource: %v", res.Error)
+				h.sendErrorMessage(chatID, "Resurs qo'shishda xatolik yuz berdi.")
+			} else {
+				log.Printf("Link resource added: ID=%d, URL=%s", resource.ID, videoURL)
+				h.sendErrorMessage(chatID, "✅ Havola muvaffaqiyatli qo'shildi!")
+				// Notify subscribed users
+				h.notifySubscribedUsers(categoryID, fmt.Sprintf("Yangi havola: %s", videoURL))
+			}
 		}
+
 		h.showCategoryResources(chatID, 0, categoryID, userID)
 
 	case StateAwaitingResourceFile:
@@ -792,7 +837,8 @@ func (h *Handler) showCategoryResources(chatID int64, messageID int, categoryID 
 	}
 
 	var resources []database.Resource
-	h.DB.Where("category_id = ?", categoryID).Order("created_at asc").Find(&resources)
+	// Exclude resources that are still processing (only show completed or non-video resources)
+	h.DB.Where("category_id = ? AND (processing_status = '' OR processing_status = 'completed' OR processing_status = 'failed')", categoryID).Order("created_at asc").Find(&resources)
 
 	log.Printf("Showing resources for category %d: Found %d resources", categoryID, len(resources))
 	for _, res := range resources {
@@ -902,9 +948,20 @@ func (h *Handler) showCategoryResources(chatID int64, messageID int, categoryID 
 			linkMsg.ReplyMarkup = deleteButton
 			h.Bot.Send(linkMsg)
 		} else if res.Type == "video" {
-			// Send video with caption and delete button
+			// Send video with caption, title, and source URL link
 			videoMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(res.FileID))
-			videoMsg.Caption = fmt.Sprintf("%d. %s *Video*", globalIndex, emoji)
+			caption := fmt.Sprintf("%d. %s", globalIndex, emoji)
+			if res.Title != "" {
+				caption += fmt.Sprintf(" *%s*", res.Title)
+			} else {
+				caption += " *Video*"
+			}
+			// Add source URL link if available
+			if res.URL != "" {
+				escapedURL := strings.ReplaceAll(res.URL, "_", "\\_")
+				caption += fmt.Sprintf("\n\n🔗 Manba: %s", escapedURL)
+			}
+			videoMsg.Caption = caption
 			videoMsg.ParseMode = "Markdown"
 			videoMsg.ReplyMarkup = &deleteButton
 			h.Bot.Send(videoMsg)
@@ -1063,7 +1120,8 @@ func (h *Handler) showStudentViewResources(chatID int64, messageID int, category
 	}
 
 	var resources []database.Resource
-	h.DB.Where("category_id = ?", categoryID).Order("created_at asc").Find(&resources)
+	// Exclude resources that are still processing (only show completed or non-video resources)
+	h.DB.Where("category_id = ? AND (processing_status = '' OR processing_status = 'completed' OR processing_status = 'failed')", categoryID).Order("created_at asc").Find(&resources)
 
 	// Get current page for this user
 	currentPage, exists := h.resourcePageInfo[userID]
@@ -1143,9 +1201,20 @@ func (h *Handler) showStudentViewResources(chatID int64, messageID int, category
 			linkMsg.ParseMode = "Markdown"
 			h.Bot.Send(linkMsg)
 		} else if res.Type == "video" {
-			// Send video with caption
+			// Send video with caption, title, and source URL link
 			videoMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(res.FileID))
-			videoMsg.Caption = fmt.Sprintf("%d. %s *Video*", globalIndex, emoji)
+			caption := fmt.Sprintf("%d. %s", globalIndex, emoji)
+			if res.Title != "" {
+				caption += fmt.Sprintf(" *%s*", res.Title)
+			} else {
+				caption += " *Video*"
+			}
+			// Add source URL link if available
+			if res.URL != "" {
+				escapedURL := strings.ReplaceAll(res.URL, "_", "\\_")
+				caption += fmt.Sprintf("\n\n🔗 Manba: %s", escapedURL)
+			}
+			videoMsg.Caption = caption
 			videoMsg.ParseMode = "Markdown"
 			h.Bot.Send(videoMsg)
 		} else if res.Type == "document" {
